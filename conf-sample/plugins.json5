@@ -1,0 +1,39 @@
+{
+    speak: {
+        detect_lang: 'macos-only',
+        cache_dir: '/var/notify-cache',
+        plugins: {
+            say: {
+                default_voice: {
+                    ja: 'Kyoko',
+                    en: 'Ava',
+                },
+            },
+            AquesTalkPi: {
+                app_path: '/opt/aquestalkpi/AquesTalkPi',
+            },
+            festival: {
+                app_path: '/usr/bin/festival',
+            },
+        },
+        preferred_languages: [ 'en', 'ja', 'zh', 'fr' ],
+    },
+    mailto: {
+        service: 'Gmail',
+        // host: SMTP_HOST_NAME
+        // port: PORT_NUM
+        user: 'YOUR_GMAIL_ADDRESS',
+        password: 'APP_PASSWORD', // see : https://support.google.com/mail/answer/185833?hl=en
+        mailto: [ 'RECIPIENT_ADDRESS' ],
+        ],
+    },
+    twitter: {
+        app: '@file:twitter-app.json5',     // first put your twitter API consumer key/secrets in this file, 
+        oauth: '@file:twitter-oauth.json5', // then generate oauth credentials using : ../tools/twitter-authenticate.js
+        mention: '0xcocoa', // do not prepend "@"
+    },
+    line: {
+        // generate a token at : https://notify-bot.line.me/my/
+        token: 'LINE_TOKEN',
+    },
+}

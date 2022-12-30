@@ -1,0 +1,20 @@
+{
+  "name": "notify",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@smodin/fast-text-language-detection": "^0.2.3",
+    "axios": "^1.2.1",
+    "json5": "^2.2.2",
+    "mqtt": "^4.3.7",
+    "nodemailer": "^6.8.0",
+    "oauth-revenge": "^0.0.5",
+    "queue-promise": "^2.2.1"
+  }
+}

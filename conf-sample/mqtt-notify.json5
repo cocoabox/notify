@@ -1,0 +1,12 @@
+{
+    broker: {
+        host: 'MQTT_SERVER_HOST_NAME',
+        port: 8883,
+        username: 'USER_NAME',
+        password: 'PASSWORD',
+    },
+    client_cert: '@file:certs/client-cert.pem',
+    client_key: '@file:certs/client-key.pem',   // key should not be password protected
+    ca: '@file:certs/ca-cert.pem',  
+    topic_prefix: 'notify/',
+}
