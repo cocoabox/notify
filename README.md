@@ -15,6 +15,7 @@ notify is a self-contained MQTT notification manager. it is designed to run on m
 - muting and resuming of all notifications
 - plugin-based notification emitters (see below for instructions on how to configure them)
 	* text-to-speech on macOS and linux
+	* locally or remotely hosted [voicevox](https://voicevox.hiroshiba.jp)
 	* twitter
 	* LINE Notify
 	* Email
@@ -72,7 +73,7 @@ for `client_cert`,`client_key` and `ca`, the value may be the string body of the
 
    ```
    { consumer_key: 'xxx', consumer_secret: 'xxx' }
-```
+   ```
    
 2. run `tools/twitter-authenticate.js`, log onto Twitter as instructed then enter PIN
 
@@ -145,9 +146,15 @@ for `client_cert`,`client_key` and `ca`, the value may be the string body of the
 	    }
 	```
 
-For raspberry pi, install [AquesTalkPi](https://www.a-quest.com/products/aquestalkpi.html). For better sound, install Voicevox on another computer (a Pi4B is OK but slow; a PC with GPU is better), then provide the "voicevox_client" object as shown above, replacing your voicevox engine host/port.
+For raspberry pi, install [AquesTalkPi](https://www.a-quest.com/products/aquestalkpi.html). 
 
-### On uniqids
+#### Voicevox
+
+Voicevox provides very realistic Japanese text-to-speech. To install Voicevox on another computer (a Pi4B is OK but slow (0.6sec per character); a PC with GPU is better), provide the "voicevox_client" configuration object as shown above, replacing your voicevox engine host/port. 
+
+To host your own voicevox instance on a faster computer or a raspi, see [tools/voicevox-docker-raspi](tools/voicevox-docker-raspi)/*.
+
+### Message uniqids
 
 Ideally, each message should have its own uniqid, for example `cocoa.home-automation.curtains.opened#curtain1`. The uniqid is required when you need to stop/acknowledge nagging.
 
@@ -155,13 +162,13 @@ Ideally, each message should have its own uniqid, for example `cocoa.home-automa
 
 - `notify/do/notify`
     enqueues one notification. payload may be either one of the followings:
-    - STRING : 
+    - Message Payload STRING : 
     
       ```
       MESSAGE_STR #TAG1 #TAG2 ...
       ```
       
-    - JSON :
+    - Message Payload JSON :
     
       ```
       {
@@ -191,7 +198,7 @@ Ideally, each message should have its own uniqid, for example `cocoa.home-automa
         once_period: PERIOD,         # rate limit period
       }
       ```
-
+	   
       PERIOD is one of the followings:
       - `NUMBER` : a period of N minutes
       - `STRING` in format `"NUMBER (minutes|hours|days)"` 
@@ -204,20 +211,30 @@ Ideally, each message should have its own uniqid, for example `cocoa.home-automa
       - `plugin:PLUGIN_NAME,PLUGIN_NAME,...` : only allow specified plugins to handle the notification
 
 - `notify/do/mute`
-    begins muting. repeated nags during mute will be discarded
+
+    begins muting. repeated nags during mute will be discarded. Message body should be empty.
 
 - `notify/do/unmute`
-    ends muting
+
+    ends muting. Message body should be empty.
 
 - `notify/do/acknowledege`
+
     stops nagging of one repeated message. payload: 
     ```
     UNIQID_STR
     ```
     
 - `notify/do/query_messages`
+
     get current execution queue and a list of repeated nags; response will be posted to
     topic `notify/messages`
 
+- `notify/do/suspend`
 
+   stop sending notifications. New notifications will be queued up. Message body should be empty.
+   
+- `notify/do/resume`
+
+   resume sending notifications. Queued notifications will be sent in one go. Message body should be empty.
 
