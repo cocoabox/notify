@@ -300,7 +300,7 @@ class MqttNotify extends Notify {
         this._on_do_query_messages('acknowledged');
     }
 
-    _on_do_notify(payload) {
+    async _on_do_notify(payload) {
         // 
         // payload: JSON or String
         //  - String: "MESSAGE #TAG1 #TAG2 #TAG3 ..."           # sends one normal-prority message with specified tags
@@ -397,7 +397,7 @@ class MqttNotify extends Notify {
                 {uniqid, tags, urgency, originated_from}); 
         }
         else {
-            this.notify_once(message, {uniqid, tags, urgency, originated_from, once_per_n_mins});
+            await this.notify_once(message, {uniqid, tags, urgency, originated_from, once_per_n_mins});
         }
 
         // post-enqueue action
@@ -416,14 +416,32 @@ class MqttNotify extends Notify {
                 this.queue_step();
             }
             else {
-                console.warn('[WARN] unable to step after enqueue, because current queue_status is :', this.queue_status);
+                console.warn('[WARN] unable to step after enqueue, because current queue_status is :', this.queue_status," ; was expecting 'suspended'");
             }
         }
     }
     _on_do_query_messages() {
-        this._pub_my_status('request-received');
+        this._pub_my_status('request-received', true);
     }
-    _pub_my_status(why='') {
+    _pub_my_status(why='', subject_to_debouncing=false) {
+        if (! this._pub_my_status_debounce_statuses) {
+             this._pub_my_status_debounce_statuses = {};
+        }
+
+        if (subject_to_debouncing) {
+            const dont_pub_until = this._pub_my_status_debounce_statuses[why ?? ''];
+            if (typeof dont_pub_until === 'number' && dont_pub_until >= Date.now()) {
+                // we are in cooldown
+                return;
+            }
+            if (typeof dont_pub_until === 'number' && Date.now() > dont_pub_until) {
+                // debounce cleared
+                delete this._pub_my_status_debounce_statuses[why ?? ''];
+            }
+            const DEBOUNCE_MINS = 5;
+            this._pub_my_status_debounce_statuses[why ?? ''] = Date.now() + DEBOUNCE_MINS * 60 * 1000;
+        }
+
         const {pending, nags } = this.items;
         const mute_status = this.is_muted;
         const running = this._queue.running_item ? {

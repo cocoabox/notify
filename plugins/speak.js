@@ -9,6 +9,14 @@ const path = require('path');
 
 let speak_plugins = null;
 
+const chimes = {
+    'critical':'CHORD.WAV',
+    'warn':'DING.WAV',
+    'info':'pong.wav',
+    'uh-oh':'ICQMessage.wav',
+    'time': 'cuckoo.wav',
+};
+
 function load_plugins() {
     if (speak_plugins) { return speak_plugins; }
 
@@ -38,10 +46,10 @@ function sha1(of_what) {
 }
 
 function sound_path_from_tags(tags) {
-    const sound_name = tags.includes('critical') ? 'CHORD.WAV':
-        tags.includes('warn') ? 'DING.WAV':
-        '';    
-    return sound_name ? path.join(__dirname, 'sounds', sound_name) : '';
+    for (const [tag, wav] of Object.entries(chimes)) {
+        if (tags.includes(tag)) return path.join(__dirname, 'sounds', wav)
+    }
+    return '';
 }
 
 function escape_shell (cmd) {
@@ -85,7 +93,7 @@ async function async_filter(arr, callback) {
     return (await Promise.all(arr.map(async item => (await callback(item)) ? item : fail))).filter(i=>i!==fail);
 }
 
-async function speak(message, tags, config, {on_got_pid, on_query_killed}={}) {
+async function speak(message, tags, config, {on_got_pid, on_query_killed, set_doing_lengthy_stuff}={}) {
     let detect_lang_preference = config.detect_lang ?? true;
     if (detect_lang_preference === 'macos-only') {
         detect_lang_preference = process.platform === 'darwin';
@@ -99,6 +107,9 @@ async function speak(message, tags, config, {on_got_pid, on_query_killed}={}) {
         const {speak_plugin_name, is_available} = p;
         // console.log(`querying plugin availablility (${speak_plugin_name}) for message : ${message}`);
         const plugin_conf = config?.plugins?.[speak_plugin_name];
+        if (plugin_conf?._disabled) {
+            return false;
+        }
         const ctx = {execute};
         return await is_available.apply(ctx, [message, lang, plugin_conf]); 
     });
@@ -118,18 +129,20 @@ async function speak(message, tags, config, {on_got_pid, on_query_killed}={}) {
         on_got_pid, 
         on_query_killed, 
         escape_shell,
+        on_got_pid, 
+        on_query_killed, 
+        set_doing_lengthy_stuff,
     };
     try {
         const speak_plugin_res = await main.apply(context, [
-            message, tags, lang, plugin_config, 
-            {on_got_pid, on_query_killed},
+            message, tags, lang, plugin_config, context,
         ]);
         return {done: 1, speak_plugin_res};
     }
     catch (reason) {
         if (reason?.killed) {
             console.warn("🛑 speak plugin interrupted or killed");
-            return {killed: true};
+            throw {killed: true};
         }
         else {
             console.warn('speak plugin failed with error :', reason);

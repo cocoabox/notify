@@ -55,16 +55,17 @@ function execute(command, options = {}) {
                 stderr.push(line);
             });
             proc.on('close', (code) => {
+                const signal = proc.signalCode;
                 if (typeof options.on_closed === 'function') {
-                    options.on_closed({code, stdout, stderr});
+                    options.on_closed({code, stdout, stderr, signal});
                 }
                 if (options.start_only) {
                     // do nothing
                 } else {
                     if (code === 0) {
-                        resolve({code, stdout, stderr});
+                        resolve({code, stdout, stderr, signal});
                     } else {
-                        reject({code, stdout, stderr});
+                        reject({code, stdout, stderr, signal});
                     }
                 }
             });

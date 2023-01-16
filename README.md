@@ -72,7 +72,7 @@ for `client_cert`,`client_key` and `ca`, the value may be the string body of the
 
    ```
    { consumer_key: 'xxx', consumer_secret: 'xxx' }
-   ```
+```
    
 2. run `tools/twitter-authenticate.js`, log onto Twitter as instructed then enter PIN
 
@@ -118,10 +118,11 @@ for `client_cert`,`client_key` and `ca`, the value may be the string body of the
 2. paste the following snippet into `conf/plugins.json5`
  
 	```
-		{		:
+		{	
+			:
 			:
 	    speak: {
-	        cache_dir: '/tmp',
+	        cache_dir: '/tmp',          // or dir on non-SD-card partition
 	        plugins: {
 	            say: {
 	                default_voice: {
@@ -132,9 +133,11 @@ for `client_cert`,`client_key` and `ca`, the value may be the string body of the
 	            AquesTalkPi: {
 	                app_path: '/opt/aquestalkpi/AquesTalkPi',  // (*1)
 	            },
-	            festival: {
-	                app_path: '/usr/bin/festival',             // (*1)
-	            },
+                 voicevox_client: {
+                    // install on a Raspi 4B (see ../tools/voicevox-docker-raspi/* )
+                    host: 'my-voicevox-server:50021',
+                    speaker: 1,
+               },	            
 	        },
 	        preferred_languages: [ 
 	            'en', 'ja', 'fr',       // <-- languages that messages will show up in
@@ -142,7 +145,7 @@ for `client_cert`,`client_key` and `ca`, the value may be the string body of the
 	    }
 	```
 
-For raspberry pi, install [AquesTalkPi](https://www.a-quest.com/products/aquestalkpi.html) or [festival](https://learn.adafruit.com/speech-synthesis-on-the-raspberry-pi/installing-the-festival-speech-package) for Japanese and English text-to-speech functionalities, then specify the binary of the installed app in your config file (`*1` shown above)
+For raspberry pi, install [AquesTalkPi](https://www.a-quest.com/products/aquestalkpi.html). For better sound, install Voicevox on another computer (a Pi4B is OK but slow; a PC with GPU is better), then provide the "voicevox_client" object as shown above, replacing your voicevox engine host/port.
 
 ### On uniqids
 

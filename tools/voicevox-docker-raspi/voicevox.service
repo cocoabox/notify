@@ -1,0 +1,11 @@
+[Unit]
+Description=voicevox
+Requires=docker.service
+After=docker.service
+
+[Service]
+#Restart=always
+ExecStart=/usr/bin/docker run  --name my_voicevox --rm    -p '50021:50021'     voicevox_0101_arm64
+ExecStop=/usr/bin/docker stop my_voicevox
+[Install]
+WantedBy=multi-user.target

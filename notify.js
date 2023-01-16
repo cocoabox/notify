@@ -51,13 +51,10 @@ class Notify extends EventEmitter {
         return await this._queue.run_once();
     }
     get items() { 
-        console.log("[pennding items]", this._queue.items);
-
         return {
             queue_status: this.queue_status,
 
             pending: this._queue.items.map(item => {
-                console.log("[pennding item]", item);
                 return {
                     uniqid: item.user_data.metadata?.uniqid,
                     message: item.user_data.message,
@@ -114,7 +111,7 @@ class Notify extends EventEmitter {
     static default_uniqid(message, {tags, originated_from}={}) {
         return sha1({message, tags, originated_from});
     }
-    notify_once(message, {uniqid, tags, urgency, originated_from, once_per_n_mins}={}) {
+    async notify_once(message, {uniqid, tags, urgency, originated_from, once_per_n_mins}={}) {
         if (! uniqid) {
             uniqid = this.constructor.default_uniqid(message, {tags, originated_from});
             console.warn(`uniqid for message(${message}) is :`, uniqid);
@@ -134,7 +131,7 @@ class Notify extends EventEmitter {
         const metadata = {
             uniqid,
         };
-        this._queue.enqueue(new NotifyQitem(
+        await this._queue.enqueue(new NotifyQitem(
             message, {tags, originated_from, metadata}
         ), urgency);
 

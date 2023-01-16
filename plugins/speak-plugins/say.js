@@ -48,7 +48,7 @@ async function say(message, tags, lang, conf, {on_got_pid, on_query_killed}={}) 
 
     // main process
     try {
-        const cache_filename = cache_dir ? (path.join(cache_dir, sha1({message, tags, use_voice})) + '.aiff') : '';
+        const cache_filename = cache_dir ? (path.join(cache_dir, sha1({plugin: 'macos-say', message, tags, use_voice})) + '.aiff') : '';
         if (cache_filename) {
             if (! fs.existsSync(cache_filename)) {
                 const say_res = await execute('say', {

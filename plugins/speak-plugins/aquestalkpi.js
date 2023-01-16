@@ -19,7 +19,7 @@ async function aquestalkpi(message, tags, lang, conf, {on_got_pid, on_query_kill
         }
     }
     try {
-        const cache_filename = cache_dir ? path.join(cache_dir, sha1({message, tags}) + '.wav') : '';
+        const cache_filename = cache_dir ? path.join(cache_dir, sha1({plugin: 'AquesTalkPi', message, tags}) + '.wav') : '';
         const text_escaped = escape_shell(message);
         if (cache_filename) {
             if (! fs.existsSync(cache_filename)) {

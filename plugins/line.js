@@ -3,6 +3,12 @@
 const axios = require('axios');
 const querystring = require('querystring');
 
+/**
+ * @see https://notify-bot.line.me/doc/ja/
+ * @param {string} message
+ * @param {string[]} tags
+ * @param {{token:string, emit_tags:string[]}} config
+ */
 async function line_notify(message, tags, config) {
     const {token, emit_tags} = config;
     if (! token) {

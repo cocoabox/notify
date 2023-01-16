@@ -2,6 +2,13 @@
 
 const {EventEmitter} = require("events");
 
+function sleep(msec) {
+    return new Promise(resolve => {
+        setTimeout(()=>{
+            resolve();
+        }, msec);
+    });
+}
 class Qitem {
     reset() {
         this._status = 'idle';
@@ -9,14 +16,20 @@ class Qitem {
     }
     kill() {
         return new Promise(async (resolve, reject) => {
+            if (this._status === 'killed') {
+                console.log("[qitem kill] already killed");
+                resolve();
+            }
             this._is_killed = true;
             try {
+                this._status = 'killing';
                 await this._kill();
                 this._status = 'killed';
+                console.log("[qitem kill] successful");
                 resolve();
             } 
             catch(reason) {
-                console.warn('failed to kill Qitem because :', reason);
+                console.warn('[qitem kill] failed to kill Qitem because :', reason);
                 reject({error: reason});
             }
         });
@@ -42,7 +55,7 @@ class Qitem {
     }
     _execute() {
         // User should implement their own _execute() method
-        return new Promise((resolve) => {
+        return new Promise((resolve) => { 
             resolve();
         });
     }
@@ -102,6 +115,7 @@ class Queue extends EventEmitter {
     _sort() {
         this._items.sort((a,b) => a.prio_number - b.prio_number);
     }
+
     /**
      * @param {Qitem} qitem
      *         
@@ -113,6 +127,7 @@ class Queue extends EventEmitter {
      *      resolves if job is enqueued
      */
     async enqueue(qitem, urgency=false) {
+        console.log("[enqueue]", JSON.stringify(qitem), "; urgency =",urgency);
         // type checks
         if (! ['number', 'boolean'].includes(typeof urgency)) {
             throw new TypeError('expecting urgency to be either a number or boolean');
@@ -124,11 +139,17 @@ class Queue extends EventEmitter {
 
         // assign priority number based on given urgency
         let prio_number;
-        console.log("urgency :", urgency);
+        console.log("❗urgency :", urgency);
         if (urgency === true) {
-            const current_min_prio_number = Math.min.apply(null, this._items.map(j => j.prio_number) );
-            console.log("urgent queue ; current min prio_number is :", current_min_prio_number);
-            prio_number = current_min_prio_number - 1;
+            if (0 === this._items.length) {
+                prio_number = 0;
+            }
+            else {
+                const current_min_prio_number = Math.min.apply(null, this._items.map(j => j.prio_number) );
+                console.log("urgent queue ; current min prio_number is :", current_min_prio_number);
+                prio_number = current_min_prio_number - 1;
+            }
+            console.log("urgent queue, prio_number :", prio_number);
            
             if (this._running_item) {
                 qitem_to_kill = this._running_item.qitem;
@@ -154,7 +175,7 @@ class Queue extends EventEmitter {
 
         // kill existing if wanted
         if (qitem_to_kill) {
-            console.warn('killing existing item');
+            console.warn('killing existing item', qitem_to_kill);
             await qitem_to_kill.kill();
         }
         // start running queue if not so
@@ -169,10 +190,12 @@ class Queue extends EventEmitter {
         }
     }
     async suspend(kill_running_item=false) {
-        console.warn('[suspend] begin');
+        console.warn('[queue] [suspend] begin');
         this._is_suspend = true;
+
         if (! this._is_running) {
-            console.warn('[suspend] not running ; nothing else to do');
+            console.warn('[queue] [suspend] not running ; nothing else to do');
+            this._is_suspend = true;
             return;
         }
         const suspend_pending_promise = new Promise(resolve => {
@@ -187,23 +210,25 @@ class Queue extends EventEmitter {
             promises_to_wait.push(kill_promise);
         }
         try {
-            console.warn('[suspend] waiting for promises_to_wait');
+            console.warn('[queue] [suspend] waiting for promises_to_wait');
             await Promise.all(promises_to_wait);
-            console.warn('[suspend] all done');
+            console.warn('[queue] [suspend] all done');
             return {done: true};
         }
         catch (reason) {
-            console.warn('[suspend] failed to kill existing running item');
+            console.warn('[queue] [suspend] failed to kill existing running item');
             throw {error:reason};
         }
     }
     async resume() {
+        console.log("[queue] resume");
         this._is_suspend = false;
         if ( this._items.length > 0) {
             return await this.start_running();
         }
     }
     async run_once() {
+        console.log("[queue] run once");
         if (this._is_suspend && this._items.length > 0) {
             this._run_once = true;
             return await this.start_running();
@@ -242,21 +267,22 @@ class Queue extends EventEmitter {
         this._is_suspend = false;
         let how_did_we_break;
         while (true) {
-            console.log("remaining items :", JSON.stringify(this._items));
+            console.log("[start_running] remaining items :", JSON.stringify(this._items));
             if (this._items.length == 0) {
                 console.log('no more items in queue');
                 how_did_we_break='no-more-items';
                 break;
             }
             this._running_item = this._items.shift();
-            console.log("now running", JSON.stringify(this._running_item));
+            console.log("[start_running] now running", JSON.stringify(this._running_item));
             try {
-                this.emit('item-run-started', {item: this._running_item.qitem});
+                this.emit('[start_running] item-run-started', {item: this._running_item.qitem});
                 const exec_result = await this._running_item.qitem.execute();
-                console.log("qitem execute() result:", exec_result);
+                console.log("[start_running] qitem execute() result:", exec_result);
                 if (exec_result?.killed) {
                     this._running_item.qitem.reset();
-                    console.log("run item killed; putting back to queue:", this._running_item);
+                    console.log("[start_running] run item killed; _is_suspend =", this._is_suspend,
+                        "; putting back to queue:", this._running_item);
                     this._items.push(this._running_item);
                     this._sort();
                     const ran =  this._running_item.qitem;
@@ -270,13 +296,13 @@ class Queue extends EventEmitter {
                 }
             } 
             catch (reason) {
-                console.log("run item error", reason);
+                console.log("[start_running] run item error", reason);
                 this.emit('item-run-error', {item: this._running_item.qitem, reason});
             }
             this._running_item = null;
             if (this._is_suspend ) {
                 how_did_we_break='suspend';
-                console.log("suspension requested. breaking loop");
+                console.log("[start_running] suspension requested. breaking loop");
                 if (this._suspend_pending_resolve_func) {
                     this._suspend_pending_resolve_func();
                     this._suspend_pending_resolve_func = null;
@@ -287,7 +313,7 @@ class Queue extends EventEmitter {
                 this._run_once = false;
                 this._is_suspend = true;
                 how_did_we_break='run-once-finished';
-                console.log("run-once finished. breaking loop");
+                console.log("[start_running] run-once finished. breaking loop");
                 break;
             }
         }

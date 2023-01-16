@@ -45,7 +45,9 @@ function get_plugins_from_tags(tags, plugins) {
     }
     // console.log('filter_csv', filter_csv);
     const filters = filter_csv.map(f => f.split(',')).flat();
-    return {plugins: plugins.filter(p => filter_csv.includes(p.plugin_name)), is_specific: true};
+    const extracted_plugins = plugins.filter(p => filters.includes(p.plugin_name));
+
+    return {plugins: extracted_plugins, is_specific: true};
 }
 
 class NotifyQitem extends Qitem {
@@ -54,18 +56,49 @@ class NotifyQitem extends Qitem {
         return new Promise(async (resolve, reject) => {
             const config_obj = config();
             const all_plugins = load_plugins();
-            const {message, tags} = this.user_data;
+            const {message, tags} = this.user_data ?? {};
+            // console.log("message :", message);
+            // console.log("tags :", tags);
             const {plugins, is_specific} = get_plugins_from_tags(tags, all_plugins);
+            //console.log("plugins :", plugins);
             const final_plugins = is_specific ? plugins : plugins.filter(p => p.enabled_by_default);
+
+            console.log("final_plugins :", final_plugins);
+            if (! final_plugins.length) {
+                console.warn('WARN: no plugins will be used to emit this message:', {message, tags});
+            }
 
             const all_result = await Promise.all(final_plugins.map(async fp => {
                 const {plugin_name, main} = fp;
                 console.log('exec plugin :', plugin_name);
                 try {
-                    const plugin_res = await main(message, tags, config_obj?.[plugin_name], {
-                        on_got_pid : pid => { this._pid = pid; },
-                        on_query_killed: () => this.is_killed,
-                    });
+                    this._doing_lengthy_stuff = false;
+                    const ctx = {
+                        // plugin reports PID to us so we can kill the process in case 
+                        // interruption is required
+                        on_got_pid : pid => { 
+                            console.log("[_execute] plugin reported PID :", pid);
+                            this._pid = pid; 
+                        },
+                        // plugin calls this func to ask us whether interruption 
+                        // is required
+                        on_query_killed: () => {
+                            if (this._is_killed) {
+                                console.log("[_execute] telling process that we're killed");
+                            }
+                            return this.is_killed;
+                        },
+                        // for non-PID based lengthy process
+                        // when killed, we will wait till this._doing_lengthy_stuff flag is FALSE
+                        set_doing_lengthy_stuff: (doing_lengthy_stuff) => {
+                            console.log("[_execute] we're informed that we're", (doing_lengthy_stuff ? "": "not"), "doing lengthy stuff");
+                            this._doing_lengthy_stuff = doing_lengthy_stuff;
+                        }
+                    };
+                    const plugin_res = await main.apply(ctx, [
+                        message, tags, config_obj?.[plugin_name], ctx
+                    ]);
+
                     console.log(`plugin ${plugin_name} succeeded :`, plugin_res);
                     return {done: 1};
                 }
@@ -95,13 +128,35 @@ class NotifyQitem extends Qitem {
     }
 
     _kill() {
-        try {
-            console.warn(`kill pid #${this._pid}`);
-            process.kill(this._pid);
-        }
-        catch (error) {
-            console.warn(`failed to kill pid #${this._pid} because`, error);
-        }
+        return new Promise (resolve => {
+            try {
+                if (this._pid) {
+                    console.warn(`[_kill] pid #${this._pid}`);
+                    process.kill(this._pid);
+                    this._pid = null;
+                }
+            }
+            catch (error) {
+                console.warn(`[_kill] failed to kill pid #${this._pid} because`, error);
+            }
+            if (this._doing_lengthy_stuff) {
+                let check_timer;
+                check_timer = setInterval(() => {
+                    console.log("[_kill] waiting for _doing_lengthy_stuff");
+                    if (! this._doing_lengthy_stuff_doin) {
+                        console.log("[_kill] DONE _doing_lengthy_stuff");
+                        clearInterval(check_timer);
+                        this._killed = true;
+                        resolve();
+                    }
+                }, 1000);
+            }
+            else {
+                console.log('[_kill] not doing lengthy stuff; kill approved');
+                this._killed = true;
+                resolve();
+            }
+        });
     }
     constructor(message, {originated_from, tags, metadata}={}) {
         const tags_array = Array.isArray(tags) ? tags : [tags];
