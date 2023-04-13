@@ -60,7 +60,7 @@ class NotifyQitem extends Qitem {
             // console.log("message :", message);
             // console.log("tags :", tags);
             const {plugins, is_specific} = get_plugins_from_tags(tags, all_plugins);
-            //console.log("plugins :", plugins);
+            console.log("plugins :", plugins);
             const final_plugins = is_specific ? plugins : plugins.filter(p => p.enabled_by_default);
 
             console.log("final_plugins :", final_plugins);
@@ -74,13 +74,13 @@ class NotifyQitem extends Qitem {
                 try {
                     this._doing_lengthy_stuff = false;
                     const ctx = {
-                        // plugin reports PID to us so we can kill the process in case 
+                        // plugin reports PID to us so we can kill the process in case
                         // interruption is required
-                        on_got_pid : pid => { 
+                        on_got_pid : pid => {
                             console.log("[_execute] plugin reported PID :", pid);
-                            this._pid = pid; 
+                            this._pid = pid;
                         },
-                        // plugin calls this func to ask us whether interruption 
+                        // plugin calls this func to ask us whether interruption
                         // is required
                         on_query_killed: () => {
                             if (this._is_killed) {

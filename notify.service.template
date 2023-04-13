@@ -1,0 +1,13 @@
+[Unit]
+Description=notify
+MOSQUITTO_COMMENT Requires=mosquitto.service
+MOSQUITTO_COMMENT After=mosquitto.service
+
+[Service]
+Restart=always
+WorkingDirectory=DIR
+ExecStart=DIR/start.sh
+ExecStop=DIR/stop.sh
+
+[Install]
+WantedBy=multi-user.target

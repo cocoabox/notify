@@ -2,14 +2,13 @@
 
 const execute = require('../execute');
 const LanguageDetection = require('@smodin/fast-text-language-detection');
-const JSON5 = require('json5');
 const fs = require('fs');
 const crypto = require('crypto');
 const path = require('path');
 
 let speak_plugins = null;
 
-const chimes = {
+const sounds = {
     'critical':'CHORD.WAV',
     'warn':'DING.WAV',
     'info':'pong.wav',
@@ -45,9 +44,18 @@ function sha1(of_what) {
     return shasum.digest('hex');
 }
 
-function sound_path_from_tags(tags) {
-    for (const [tag, wav] of Object.entries(chimes)) {
-        if (tags.includes(tag)) return path.join(__dirname, 'sounds', wav)
+function sound_path_from_tags_with_config(tags, config) {
+    const default_sounds = Object.entries(sounds).map(([tag, filename])=>[
+        tag, path.join(__dirname, 'sounds', filename)
+    ]);
+    const extra_sounds = Object.entries(config.extra_sounds ?? {}).map(([tag, filename])=>[
+        tag, path.join(__dirname, 'extra-sounds', filename)
+    ]);
+    const all_sounds = Object.fromEntries([].concat(default_sounds, extra_sounds));
+    for (const [tag, fullpath] of Object.entries(all_sounds)) {
+        if (tags.includes(tag)) {
+            return fullpath;
+        }
     }
     return '';
 }
@@ -98,7 +106,7 @@ async function speak(message, tags, config, {on_got_pid, on_query_killed, set_do
     if (detect_lang_preference === 'macos-only') {
         detect_lang_preference = process.platform === 'darwin';
     }
-    const lang = detect_lang_preference 
+    const lang = detect_lang_preference
         ? await detect_language(message, config?.preferred_languages)
         : '';
     // console.warn(`language of "${message}" is :`, lang);
@@ -111,7 +119,7 @@ async function speak(message, tags, config, {on_got_pid, on_query_killed, set_do
             return false;
         }
         const ctx = {execute};
-        return await is_available.apply(ctx, [message, lang, plugin_conf]); 
+        return await is_available.apply(ctx, [message, lang, plugin_conf]);
     });
     // console.log('... speak-plugins available :', available_plugins.map( ap => ap.speak_plugin_name ));
     if (available_plugins.length === 0) {
@@ -122,15 +130,13 @@ async function speak(message, tags, config, {on_got_pid, on_query_killed, set_do
     const {speak_plugin_name, main} = plugin;
     const plugin_config = config?.plugins?.[speak_plugin_name] ?? {};
     const context = {
-        cache_dir: config?.cache_dir ?? '', 
-        execute, 
-        sound_path_from_tags, 
-        sha1, 
-        on_got_pid, 
-        on_query_killed, 
+        cache_dir: config?.cache_dir ?? '',
+        execute,
+        sound_path_from_tags: (tags)=> sound_path_from_tags_with_config(tags, config) ,
+        sha1,
+        on_got_pid,
+        on_query_killed,
         escape_shell,
-        on_got_pid, 
-        on_query_killed, 
         set_doing_lengthy_stuff,
     };
     try {

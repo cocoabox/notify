@@ -222,6 +222,7 @@ class MqttNotify extends Notify {
             case this._topic_prefix + 'do/unmute':
                 return this._on_do_unmute();
                 break;
+            case this._topic_prefix + 'do/ack':
             case this._topic_prefix + 'do/acknowledge':
                 return this._on_do_acknowledge(payload.toString());
                 break;

@@ -1,4 +1,6 @@
 conf/
 .private/
+.idea/
 node_modules/
+extra-sounds/*.wav
 .DS_Store
